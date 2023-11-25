@@ -1,0 +1,225 @@
+//=======================================================
+//  MODULE Definition
+//=======================================================
+module SC_STATEMACHINE_LEVELS(
+	//////////// OUTPUTS //////////
+	SC_STATEMACHINE_LOAD_LEVEL_Out,
+	SC_STATEMACHINE_LOAD_LEVEL_UP_count,
+	SC_STATEMACHINE_LOAD_LEVEL_load,
+	//////////// INPUTS //////////
+	SC_STATEMACHINE_LEVELS_CLOCK_50,
+	SC_STATEMACHINE_LEVELS_RESET_InHigh,
+	SC_STATEMACHINE_LEVELS_startButton_InLow,
+	SC_STATEMACHINE_LEVELS_llegada_InLow,
+	//SC_STATEMACHINE_LEVELS_info,
+	SC_STATEMACHINE_LEVELS_death,
+	SC_STATEMACHINE_LEVELS_level
+);	
+//=======================================================
+//  PARAMETER declarations
+//=======================================================
+//ESTADOS
+localparam STATE_LEVEL_0									= 0;
+localparam STATE_LEVEL_1									= 1;
+localparam STATE_LEVEL_2									= 2;
+localparam STATE_LEVEL_3									= 3;
+localparam STATE_RESET_0									= 4;
+localparam STATE_START_0									= 5;
+localparam STATE_ARRIVE_0									= 6;
+localparam STATE_CHECK_0									= 7;
+localparam STATE_CHECK_1									= 8;
+localparam STATE_DEFEAT_0									= 9;
+localparam STATE_VICTORY_0									= 10;
+//=======================================================
+//  PORT declarations
+//=======================================================
+output reg		[2:0]SC_STATEMACHINE_LOAD_LEVEL_Out;
+output reg		SC_STATEMACHINE_LOAD_LEVEL_UP_count;
+output reg 		SC_STATEMACHINE_LOAD_LEVEL_load;
+
+input	SC_STATEMACHINE_LEVELS_CLOCK_50;
+input	SC_STATEMACHINE_LEVELS_RESET_InHigh;
+input	SC_STATEMACHINE_LEVELS_startButton_InLow;
+input	[1:0]SC_STATEMACHINE_LEVELS_llegada_InLow; //chequeo
+//input	[2:0]SC_STATEMACHINE_LEVELS_info; //niveles
+input	SC_STATEMACHINE_LEVELS_death;
+input SC_STATEMACHINE_LEVELS_level;
+
+//=======================================================
+//  REG/WIRE declarations
+//=======================================================
+reg [3:0] STATE_Register;
+reg [3:0] STATE_Signal;
+reg [5:0] counter;
+//=======================================================
+//  Structural coding
+//=======================================================
+always @(*)
+begin
+	case (STATE_Register)
+		STATE_RESET_0: STATE_Signal = STATE_START_0;
+		STATE_START_0: STATE_Signal = STATE_LEVEL_0;
+		counter= 6'b000000;
+		STATE_CHECK_0: if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b10) STATE_Signal = STATE_ARRIVE_0;
+						else if (SC_STATEMACHINE_LEVELS_death == 1'b0) STATE_Signal = STATE_DEFEAT_0;
+						//nada
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b000000)) STATE_Signal = STATE_LEVEL_0;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter<= 6'b001010) )STATE_Signal = STATE_LEVEL_1;
+						//1
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter<= 6'b011001)) STATE_Signal = STATE_LEVEL_2;
+						//2
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter<= 6'b101101) )STATE_Signal = STATE_LEVEL_3;
+						//3
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b101110)) STATE_Signal = STATE_VICTORY_0;
+						
+						else STATE_Signal = STATE_CHECK_0;
+		//actu estados				
+		STATE_LEVEL_0:		STATE_Signal = STATE_CHECK_1;
+		STATE_LEVEL_1: 	STATE_Signal = STATE_CHECK_1;
+		STATE_LEVEL_2: 	STATE_Signal = STATE_CHECK_1;
+		STATE_LEVEL_3:  	STATE_Signal = STATE_CHECK_1;
+		STATE_VICTORY_0:  STATE_Signal = STATE_CHECK_1;
+		STATE_DEFEAT_0:  STATE_Signal = STATE_CHECK_1;
+		
+		STATE_CHECK_1: if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b10) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_death == 1'b0) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b000000)) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b001010 )) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b011001)) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b101101)) STATE_Signal = STATE_CHECK_1;
+						else if (SC_STATEMACHINE_LEVELS_llegada_InLow == 2'b00 & (counter== 6'b101110)) STATE_Signal = STATE_CHECK_1;
+						else STATE_Signal = STATE_CHECK_0;
+		
+		default : 		STATE_Signal = STATE_START_0;
+	endcase
+end
+always @(*) 
+begin
+        if (SC_STATEMACHINE_LEVELS_RESET_InHigh) 
+		  begin
+            // Reset del contador
+            counter <= 6'b000000;
+        end else 
+		  begin
+            if (SC_STATEMACHINE_LOAD_LEVEL_UP_count) 
+				begin
+                // Incrementar el contador cuando SC_STATEMACHINE_LOAD_LEVEL_UP_count es verdadero
+                counter <= counter + 1;
+            end
+        end
+end
+always @(*) 
+begin
+       // Se activa SC_STATEMACHINE_LOAD_LEVEL_load cuando se cumplen las condiciones
+   SC_STATEMACHINE_LOAD_LEVEL_load = (counter == 6'b001010) || (counter == 6'b011001) || (counter == 6'b101101) || (counter > 6'b101110);
+   STATE_Signal = STATE_Register;
+
+end
+// STATE REGISTER : SEQUENTIAL
+always @ ( posedge SC_STATEMACHINE_LEVELS_CLOCK_50 , posedge SC_STATEMACHINE_LEVELS_RESET_InHigh)
+begin
+	if (SC_STATEMACHINE_LEVELS_RESET_InHigh == 1'b1)
+		STATE_Register <= STATE_RESET_0;
+	else
+		STATE_Register <= STATE_Signal;
+end
+//=======================================================
+//  Outputs
+//=======================================================
+// OUTPUT LOGIC : COMBINATIONAL
+always @ (*)
+begin
+	case (STATE_Register)
+//=========================================================
+// STATE_RESET
+//=========================================================
+	STATE_RESET_0 :	
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b111;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_START
+//=========================================================
+	STATE_START_0 :	
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b000;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_DEFEAT
+//=========================================================
+	STATE_DEFEAT_0 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b100;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b0;
+		end
+//=========================================================
+// STATE_LEVEL_0
+//=========================================================
+	STATE_LEVEL_0 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b000;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_LEVEL_1
+//=========================================================
+	STATE_LEVEL_1 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b001;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_LEVEL_2
+//=========================================================
+	STATE_LEVEL_2 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b010;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_LEVEL_3
+//=========================================================
+	STATE_LEVEL_3 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b011;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+//=========================================================
+// STATE_VICTORY_0
+//=========================================================
+	STATE_VICTORY_0 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b101;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b0;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b0;
+		end
+//=========================================================
+// STATE__0
+//=========================================================
+	STATE_ARRIVE_0 :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b110;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b0;
+		end
+//=========================================================
+// DEFAULT
+//=========================================================
+	default :
+		begin
+			SC_STATEMACHINE_LOAD_LEVEL_Out = 3'b111;
+			SC_STATEMACHINE_LOAD_LEVEL_UP_count = 1'b1;
+			SC_STATEMACHINE_LOAD_LEVEL_load = 1'b1;
+		end
+	endcase
+end
+endmodule

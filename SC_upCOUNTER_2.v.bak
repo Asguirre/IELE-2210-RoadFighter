@@ -1,0 +1,37 @@
+module SC_upCOUNTER ( parameter upconunter_tam=6)(
+	//////////// OUTPUTS //////////
+	SC_upCOUNTER_data_OutBUS,
+	//////////// INPUTS //////////
+	SC_upCOUNTER_CLOCK_50,
+	SC_upCOUNTER_RESET_InHigh,
+	SC_upCOUNTER_upcount_InLow
+);
+
+output		[1:0]	SC_upCOUNTER_data_OutBUS;
+input		SC_upCOUNTER_CLOCK_50;
+input		SC_upCOUNTER_RESET_InHigh;
+input		SC_upCOUNTER_upcount_InLow;	
+
+reg [1:0] upCOUNTER_Register;
+reg [1:0] upCOUNTER_Signal;
+
+always @(*)
+begin
+	if (SC_upCOUNTER_upcount_InLow == 1'b1)
+		upCOUNTER_Signal = upCOUNTER_Register + 1'b1;
+	else
+		upCOUNTER_Signal = upCOUNTER_Register;
+	end	
+//STATE REGISTER: SEQUENTIAL
+always @(posedge SC_upCOUNTER_CLOCK_50, posedge SC_upCOUNTER_RESET_InHigh)
+begin
+	if (SC_upCOUNTER_RESET_InHigh == 1'b0)
+		upCOUNTER_Register <= 0;
+	else
+		upCOUNTER_Register <= upCOUNTER_Signal;
+end
+
+assign SC_upCOUNTER_data_OutBUS = upCOUNTER_Register;
+
+endmodule
+
